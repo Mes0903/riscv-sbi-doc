@@ -57,6 +57,36 @@ REQUIRES := --require=asciidoctor-bibtex \
             --require=asciidoctor-diagram \
             --require=asciidoctor-mathematical
 
+# Add the HTML target alongside the PDF target
+TARGETS += riscv-sbi.html
+
+# HTML build rule
+%.html: %.adoc $(DEPS)
+	@echo "Checking if Docker is available..."
+	@if command -v docker >/dev/null 2>&1 ; then \
+		echo "Docker is available, building inside Docker container..."; \
+		$(MAKE) build-container/$@; \
+		cp -f build-container/$@ $@; \
+	else \
+		echo "Docker is not available, building without Docker..."; \
+		$(MAKE) build-no-container/$@; \
+		cp -f build-no-container/$@ $@; \
+	fi
+
+# HTML build inside Docker container
+build-container/%.html: %.adoc $(DEPS)
+	@echo "Starting HTML build inside Docker container..."
+	@mkdir -p `dirname $@`
+	$(DOCKER_RUN) /bin/sh -c "asciidoctor $(OPTIONS) $(REQUIRES) --out-file=$@ $<"
+	@echo "HTML build completed successfully inside Docker container."
+
+# HTML build without Docker
+build-no-container/%.html: %.adoc $(DEPS)
+	@echo "Starting HTML build..."
+	@mkdir -p `dirname $@`
+	asciidoctor $(OPTIONS) $(REQUIRES) --out-file=$@ $<
+	@echo "HTML build completed successfully."
+
 .PHONY: all images clean
 
 all: $(TARGETS)
@@ -113,3 +143,4 @@ install-debs:
 .PHONY: install-rpms
 install-rpms:
 	sudo dnf install ditaa pandoc rubygem-asciidoctor rubygem-asciidoctor-pdf
+
